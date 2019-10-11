@@ -25,12 +25,12 @@ config = namedtuple('config', 'dataset_name num_classes '
 
 configs_list = []
 
-hyper_config_dict = {'omniglot': hyper_config(num_samples_per_class_range=[1, 5], num_classes_range=[20, 5],
-                                              batch_size_range=[8], init_inner_loop_learning_rate_range=[0.1],
-                                              num_filters=[64]),
-                     'mini-imagenet': hyper_config(num_samples_per_class_range=[1, 5],
+hyper_config_dict = {'mini-imagenet': hyper_config(num_samples_per_class_range=[1, 5],
                                                    batch_size_range=[2], init_inner_loop_learning_rate_range=[0.01],
-                                                   num_classes_range=[5], num_filters=[48])
+                                                   num_classes_range=[5], num_filters=[48]),
+                     'cubs200': hyper_config(num_samples_per_class_range=[1, 5],
+                                             batch_size_range=[2], init_inner_loop_learning_rate_range=[0.01],
+                                             num_classes_range=[5], num_filters=[48])
                      }
 
 
@@ -58,15 +58,13 @@ def generate_combinations(config):
 for seed in seed_list:
     for experiment_dataset_name, hyper_config in hyper_config_dict.items():
         named_configs = generate_combinations(hyper_config)
-        # print(experiment_dataset_name, len(named_configs))
         for named_config in named_configs:
             experiment_name = '{}_{}'.format(experiment_dataset_name,
                                              '_'.join([str(item) for item in list(named_config.values())]))
-            # print(experiment_name)
             configs_list.append(config(experiment_name=experiment_name, dataset_name=experiment_dataset_name,
                                        num_classes=named_config['num_classes'],
                                        samples_per_class=named_config['num_samples_per_class'],
-                                       target_samples_per_class=15 if experiment_dataset_name == 'mini-imagenet' else 1,
+                                       target_samples_per_class=15 if experiment_dataset_name in ['mini-imagenet', 'cubs200'] else 1,
                                        batch_size=named_config['batch_size'], train_update_steps=5, val_update_steps=5,
                                        init_inner_loop_learning_rate=named_config['init_inner_loop_learning_rate'],
                                        load_into_memory=True,
@@ -74,7 +72,6 @@ for seed in seed_list:
                                        learnable_bn_beta=True, num_filters=named_config['num_filters'],
                                        conv_padding=True
                                        ))
-# print(len(configs_list))
 experiment_templates_json_dir = '../experiment_template_config/'
 experiment_config_target_json_dir = '../experiment_config/'
 
@@ -106,10 +103,12 @@ for subdir, dir, files in os.walk(experiment_templates_json_dir):
         for seed_idx in seed_list:
             filepath = os.path.join(subdir, template_file)
 
-            if "omniglot" in filepath:
-                search_name = "omniglot"
-            elif "imagenet" in filepath:
+            if "imagenet" in filepath:
                 search_name = "mini-imagenet"
+            elif "cubs200" in filepath:
+                search_name = "cubs200"
+            else:
+                raise ValueError('Not a valid dataset:', filepath)
 
             for config_item in configs_list:
                 config_item = config_item._asdict()

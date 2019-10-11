@@ -1,5 +1,5 @@
 {
-  "use_critic":false,
+  "use_critic":true,
   "batch_size":$batch_size$,
   "image_height":84,
   "image_width":84,
