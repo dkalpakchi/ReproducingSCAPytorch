@@ -1,8 +1,8 @@
 .DS_STORE
 .idea
-__pycache__
+**/__pycache__
 datasets/mini_imagenet_full_size
 datasets/cubs200_dataset
-*.pyc
+**/*.pyc
 datasets/*.json
 datasets/*.bz2
