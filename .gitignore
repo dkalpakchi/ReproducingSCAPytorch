@@ -5,3 +5,4 @@ datasets/mini_imagenet_full_size
 datasets/cubs200_dataset
 *.pyc
 datasets/*.json
+datasets/*.bz2
