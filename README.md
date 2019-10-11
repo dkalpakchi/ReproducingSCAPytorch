@@ -39,7 +39,14 @@ from our [mini_imagenet gdrive folder](https://drive.google.com/file/d/1qQCoGoEJ
 Once download, please place it in the datasets folder in this repo. The rest will be done automagically when you 
 run your mini-imagenet experiment. 
 
-Note: By downloading and using the mini-imagenet datasets, you accept terms and conditions found in [imagenet_license.md](https://github.com/AntreasAntoniou/HowToTrainYourMAMLPytorch/blob/master/imagenet_license.md) 
+Note: By downloading and using the mini-imagenet datasets, you accept terms and conditions found in [imagenet_license.md](https://github.com/AntreasAntoniou/HowToTrainYourMAMLPytorch/blob/master/imagenet_license.md)
+
+### Adding the CUBS-200 dataset
+
+Create folders ```datasets/cubs200_dataset/images_background``` and
+               ```datasets/cubs200_dataset/images_evaluation```.
+Download the dataset from http://www.vision.caltech.edu/visipedia-data/CUB-200/images.tgz, extract,
+and move folders starting with 001-100 to the background folder. Move the rest to the evaluation folder.
 
 ## Overview of code:
 
