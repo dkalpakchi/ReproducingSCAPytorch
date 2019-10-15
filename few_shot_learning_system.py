@@ -170,6 +170,8 @@ class MAMLFewShotClassifier(nn.Module):
             task_losses = []
             task_accuracies = []
             per_step_loss_importance_vectors = self.get_per_step_loss_importance_vector()
+
+            # this is theta_0
             names_weights_copy = self.get_inner_loop_parameter_dict(self.classifier.named_parameters())
 
             n, s, c, h, w = x_target_set_task.shape
@@ -179,8 +181,10 @@ class MAMLFewShotClassifier(nn.Module):
             x_target_set_task = x_target_set_task.view(-1, c, h, w)
             y_target_set_task = y_target_set_task.view(-1)
 
+            # Inner loop starts
             for num_step in range(num_steps):
 
+                # operates on the support set
                 support_loss, support_preds = self.net_forward(x=x_support_set_task,
                                                                y=y_support_set_task,
                                                                weights=names_weights_copy,
@@ -188,16 +192,31 @@ class MAMLFewShotClassifier(nn.Module):
                                                                True if (num_step == 0) else False,
                                                                training=True, num_step=num_step)
 
+                # this is update of theta from the copy of current theta_0 and onward
+                # i.e. inner loop optimization wrt support set
                 names_weights_copy = self.apply_inner_loop_update(loss=support_loss,
                                                                   names_weights_copy=names_weights_copy,
                                                                   use_second_order=use_second_order,
                                                                   current_step_idx=num_step)
 
+                # TODO: inner loop OPTIMIZATION wrt target set???
                 if use_multi_step_loss_optimization and training_phase and epoch < self.args.multi_step_loss_num_epochs:
+                    # this is MAML++ way
                     target_loss, target_preds = self.net_forward(x=x_target_set_task,
                                                                  y=y_target_set_task, weights=names_weights_copy,
                                                                  backup_running_statistics=False, training=True,
                                                                  num_step=num_step)
+
+                    # TODO: here must be an update using the Critic (start without g)
+                    # F = {f(x^b_T, θ_{N+j}), θ_{N+j}, g(xS, xn)}
+                    # θ_{N+j+1} = θ_{N+j} − \gamma * \nabla_{θ_{N+j}} C(F,W)
+                    
+                    # torch.cat((target_preds, names_weights_copy), 0)
+                    
+                    print(target_preds)
+
+                    for k, v in names_weights_copy.items():
+                        print(k, v.shape)
 
                     task_losses.append(per_step_loss_importance_vectors[num_step] * target_loss)
                 else:

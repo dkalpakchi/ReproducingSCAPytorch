@@ -72,6 +72,7 @@ for seed in seed_list:
                                        learnable_bn_beta=True, num_filters=named_config['num_filters'],
                                        conv_padding=True
                                        ))
+
 experiment_templates_json_dir = '../experiment_template_config/'
 experiment_config_target_json_dir = '../experiment_config/'
 
