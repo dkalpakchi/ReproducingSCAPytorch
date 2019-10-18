@@ -8,6 +8,7 @@ import torch.optim as optim
 
 from meta_neural_network_architectures import VGGReLUNormNetwork
 from inner_loop_optimizers import LSLRGradientDescentLearningRule
+from critic import Critic
 
 
 def set_torch_seed(seed):
@@ -70,6 +71,7 @@ class MAMLFewShotClassifier(nn.Module):
         self.optimizer = optim.Adam(self.trainable_parameters(), lr=args.meta_learning_rate, amsgrad=False)
         self.scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=self.optimizer, T_max=self.args.total_epochs,
                                                               eta_min=self.args.min_learning_rate)
+        self.critic = Critic()
 
     def get_per_step_loss_importance_vector(self):
         """
@@ -199,6 +201,7 @@ class MAMLFewShotClassifier(nn.Module):
                                                                   use_second_order=use_second_order,
                                                                   current_step_idx=num_step)
 
+            
                 # TODO: inner loop OPTIMIZATION wrt target set???
                 if use_multi_step_loss_optimization and training_phase and epoch < self.args.multi_step_loss_num_epochs:
                     # this is MAML++ way
@@ -210,10 +213,8 @@ class MAMLFewShotClassifier(nn.Module):
                     # TODO: here must be an update using the Critic (start without g)
                     # F = {f(x^b_T, θ_{N+j}), θ_{N+j}, g(xS, xn)}
                     # θ_{N+j+1} = θ_{N+j} − \gamma * \nabla_{θ_{N+j}} C(F,W)
+                    critic_loss = self.critic(target_preds)
                     
-                    # torch.cat((target_preds, names_weights_copy), 0)
-                    
-                    print(target_preds)
 
                     for k, v in names_weights_copy.items():
                         print(k, v.shape)
