@@ -246,8 +246,7 @@ class MAMLFewShotClassifier(nn.Module):
 
             
             if self.args.use_critic:
-                I = 10
-                for i in range(I):
+                for i in range(self.args.num_critic_updates):
                     # TODO: here must be an update using the Critic (start without g)
                     # F = {f(x^b_T, θ_{N+j}), θ_{N+j}, g(xS, xn)}
                     # θ_{N+j+1} = θ_{N+j} − \gamma * \nabla_{θ_{N+j}} C(F,W)

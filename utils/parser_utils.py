@@ -84,9 +84,6 @@ def get_args():
     else:
         device = torch.device('cpu')
 
-    if args.use_critic:
-        args.number_of_training_steps_per_iter += args.num_critic_updates
-
     return args, device
 
 

@@ -241,8 +241,9 @@ class MetaBatchNormLayer(nn.Module):
 
         momentum = self.momentum
 
+        # BUGFIX: originally training=True always, but it's probably a bug
         output = F.batch_norm(input, running_mean, running_var, weight, bias,
-                              training=True, momentum=momentum, eps=self.eps)
+                              training=training, momentum=momentum, eps=self.eps)
 
         return output
 
