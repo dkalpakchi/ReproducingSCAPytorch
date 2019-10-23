@@ -7,7 +7,7 @@ seed_list = [0, 1, 2]
 
 hyper_config = namedtuple('hyperconfig', 'num_samples_per_class_range '
                                          'batch_size_range '
-                                         'init_inner_loop_learning_rate_range num_filters num_classes_range')
+                                         'init_inner_loop_learning_rate_range num_filters num_classes_range num_critic_updates_range')
 
 config = namedtuple('config', 'dataset_name num_classes '
                               'samples_per_class '
@@ -21,16 +21,17 @@ config = namedtuple('config', 'dataset_name num_classes '
                               'learnable_bn_gamma '
                               'conv_padding '
                               'num_filters '
-                              'experiment_name ')
+                              'experiment_name '
+                              'num_critic_updates ')
 
 configs_list = []
 
 hyper_config_dict = {'mini-imagenet': hyper_config(num_samples_per_class_range=[1, 5],
                                                    batch_size_range=[2], init_inner_loop_learning_rate_range=[0.01],
-                                                   num_classes_range=[5], num_filters=[48]),
+                                                   num_classes_range=[5], num_filters=[48], num_critic_updates_range=[10]),
                      'cubs200': hyper_config(num_samples_per_class_range=[1, 5],
                                              batch_size_range=[2], init_inner_loop_learning_rate_range=[0.01],
-                                             num_classes_range=[5], num_filters=[48])
+                                             num_classes_range=[5], num_filters=[48], num_critic_updates_range=[10])
                      }
 
 
@@ -70,7 +71,8 @@ for seed in seed_list:
                                        load_into_memory=True,
                                        learnable_bn_gamma=True,
                                        learnable_bn_beta=True, num_filters=named_config['num_filters'],
-                                       conv_padding=True
+                                       conv_padding=True,
+                                       num_critic_updates=named_config['num_critic_updates']
                                        ))
 
 experiment_templates_json_dir = '../experiment_template_config/'

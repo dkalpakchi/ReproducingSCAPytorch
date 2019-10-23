@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from meta_neural_network_architectures import VGGReLUNormNetwork
-from inner_loop_optimizers import LSLRGradientDescentLearningRule
+from inner_loop_optimizers import LSLRGradientDescentLearningRule, GradientDescentLearningRule
 from critic import Critic
 
 
@@ -51,6 +51,7 @@ class MAMLFewShotClassifier(nn.Module):
                                                                     init_learning_rate=self.task_learning_rate,
                                                                     total_num_inner_loop_steps=self.args.number_of_training_steps_per_iter,
                                                                     use_learnable_learning_rates=self.args.learnable_per_layer_per_step_inner_loop_learning_rate)
+
         self.inner_loop_optimizer.initialise(
             names_weights_dict=self.get_inner_loop_parameter_dict(params=self.classifier.named_parameters()))
 
@@ -71,7 +72,9 @@ class MAMLFewShotClassifier(nn.Module):
         self.optimizer = optim.Adam(self.trainable_parameters(), lr=args.meta_learning_rate, amsgrad=False)
         self.scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=self.optimizer, T_max=self.args.total_epochs,
                                                               eta_min=self.args.min_learning_rate)
+        
         self.critic = Critic()
+        self.inner_loop_critic_optimizer = GradientDescentLearningRule(device=device)
 
     def get_per_step_loss_importance_vector(self):
         """
@@ -131,6 +134,28 @@ class MAMLFewShotClassifier(nn.Module):
         names_weights_copy = self.inner_loop_optimizer.update_params(names_weights_dict=names_weights_copy,
                                                                      names_grads_wrt_params_dict=names_grads_wrt_params,
                                                                      num_step=current_step_idx)
+
+        return names_weights_copy
+
+    def apply_inner_loop_critic_update(self, loss, names_weights_copy, use_second_order, current_step_idx):
+        """
+        Applies an inner loop update given current step's loss, the weights to update, a flag indicating whether to use
+        second order derivatives and the current step's index.
+        :param loss: Current step's loss with respect to the support set.
+        :param names_weights_copy: A dictionary with names to parameters to update.
+        :param use_second_order: A boolean flag of whether to use second order derivatives.
+        :param current_step_idx: Current step's index.
+        :return: A dictionary with the updated weights (name, param)
+        """
+        self.classifier.zero_grad(names_weights_copy)
+
+        grads = torch.autograd.grad(loss, names_weights_copy.values(),
+                                    create_graph=use_second_order)
+        names_grads_wrt_params = dict(zip(names_weights_copy.keys(), grads))
+
+        names_weights_copy = self.inner_loop_critic_optimizer.update_params(names_weights_dict=names_weights_copy,
+                                                                            names_grads_wrt_params_dict=names_grads_wrt_params,
+                                                                            num_step=current_step_idx)
 
         return names_weights_copy
 
@@ -210,15 +235,6 @@ class MAMLFewShotClassifier(nn.Module):
                                                                  backup_running_statistics=False, training=True,
                                                                  num_step=num_step)
 
-                    # TODO: here must be an update using the Critic (start without g)
-                    # F = {f(x^b_T, θ_{N+j}), θ_{N+j}, g(xS, xn)}
-                    # θ_{N+j+1} = θ_{N+j} − \gamma * \nabla_{θ_{N+j}} C(F,W)
-                    critic_loss = self.critic(target_preds)
-                    
-
-                    for k, v in names_weights_copy.items():
-                        print(k, v.shape)
-
                     task_losses.append(per_step_loss_importance_vectors[num_step] * target_loss)
                 else:
                     if num_step == (self.args.number_of_training_steps_per_iter - 1):
@@ -227,6 +243,25 @@ class MAMLFewShotClassifier(nn.Module):
                                                                      backup_running_statistics=False, training=True,
                                                                      num_step=num_step)
                         task_losses.append(target_loss)
+
+            
+            if self.args.use_critic:
+                I = 10
+                for i in range(I):
+                    # TODO: here must be an update using the Critic (start without g)
+                    # F = {f(x^b_T, θ_{N+j}), θ_{N+j}, g(xS, xn)}
+                    # θ_{N+j+1} = θ_{N+j} − \gamma * \nabla_{θ_{N+j}} C(F,W)
+                    critic_loss, target_preds = self.net_forward_critic(x=x_target_set_task,
+                                                                        y=y_target_set_task, weights=names_weights_copy,
+                                                                        backup_running_statistics=False, training=True,
+                                                                        num_step=num_step+i)
+
+                    names_weights_copy = self.apply_inner_loop_critic_update(loss=critic_loss,
+                                                                             names_weights_copy=names_weights_copy,
+                                                                             use_second_order=use_second_order,
+                                                                             current_step_idx=num_step+i)
+
+                    task_losses.append(critic_loss)
 
             per_task_target_preds[task_id] = target_preds.detach().cpu().numpy()
             _, predicted = torch.max(target_preds.data, 1)
@@ -267,6 +302,29 @@ class MAMLFewShotClassifier(nn.Module):
                                         backup_running_statistics=backup_running_statistics, num_step=num_step)
 
         loss = F.cross_entropy(input=preds, target=y)
+
+        return loss, preds
+
+    def net_forward_critic(self, x, y, weights, backup_running_statistics, training, num_step):
+        """
+        A base model forward pass on some data points x. Using the parameters in the weights dictionary. Also requires
+        boolean flags indicating whether to reset the running statistics at the end of the run (if at evaluation phase).
+        A flag indicating whether this is the training session and an int indicating the current step's number in the
+        inner loop.
+        :param x: A data batch of shape b, c, h, w
+        :param y: A data targets batch of shape b, n_classes
+        :param weights: A dictionary containing the weights to pass to the network.
+        :param backup_running_statistics: A flag indicating whether to reset the batch norm running statistics to their
+         previous values after the run (only for evaluation)
+        :param training: A flag indicating whether the current process phase is a training or evaluation.
+        :param num_step: An integer indicating the number of the step in the inner loop.
+        :return: the crossentropy losses with respect to the given y, the predictions of the base model.
+        """
+        preds = self.classifier.forward(x=x, params=weights,
+                                        training=training,
+                                        backup_running_statistics=backup_running_statistics, num_step=num_step)
+
+        loss = self.critic(preds)
 
         return loss, preds
 
