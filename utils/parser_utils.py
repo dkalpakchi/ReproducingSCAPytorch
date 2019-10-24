@@ -52,6 +52,7 @@ def get_args():
                         help='Number of classes to sample per set')
     parser.add_argument('--num_samples_per_class', type=int, default=1, help='Number of samples per set to sample')
     parser.add_argument('--name_of_args_json_file', type=str, default="None")
+    parser.add_argument('--num_critic_updates', type=int, default=0)
 
     args = parser.parse_args()
     args_dict = vars(args)

@@ -175,13 +175,13 @@ class MetaBatchNormLayer(nn.Module):
         self.learnable_beta = self.args.learnable_bn_beta
 
         if use_per_step_bn_statistics:
-            self.running_mean = nn.Parameter(torch.zeros(args.number_of_training_steps_per_iter, num_features),
+            self.running_mean = nn.Parameter(torch.zeros(args.number_of_training_steps_per_iter + args.num_critic_updates, num_features),
                                              requires_grad=False)
-            self.running_var = nn.Parameter(torch.ones(args.number_of_training_steps_per_iter, num_features),
+            self.running_var = nn.Parameter(torch.ones(args.number_of_training_steps_per_iter + args.num_critic_updates, num_features),
                                             requires_grad=False)
-            self.bias = nn.Parameter(torch.zeros(args.number_of_training_steps_per_iter, num_features),
+            self.bias = nn.Parameter(torch.zeros(args.number_of_training_steps_per_iter + args.num_critic_updates, num_features),
                                      requires_grad=self.learnable_beta)
-            self.weight = nn.Parameter(torch.ones(args.number_of_training_steps_per_iter, num_features),
+            self.weight = nn.Parameter(torch.ones(args.number_of_training_steps_per_iter + args.num_critic_updates, num_features),
                                        requires_grad=self.learnable_gamma)
         else:
             self.running_mean = nn.Parameter(torch.zeros(num_features), requires_grad=False)
