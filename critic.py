@@ -46,6 +46,3 @@ class Critic(nn.Module):
         x = self.conv_forward(x)
         x = F.relu(self._fc1(x))
         return self._fc2(x).mean() # Is there a mean?
-
-
-

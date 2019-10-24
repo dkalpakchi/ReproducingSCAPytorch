@@ -45,19 +45,21 @@ class MAMLFewShotClassifier(nn.Module):
         self.classifier = VGGReLUNormNetwork(im_shape=self.im_shape, num_output_classes=self.args.
                                              num_classes_per_set,
                                              args=args, device=device, meta_classifier=True).to(device=self.device)
+        if args.use_critic:
+            self.critic = Critic()
         self.task_learning_rate = args.task_learning_rate
 
         self.inner_loop_optimizer = LSLRGradientDescentLearningRule(device=device,
                                                                     init_learning_rate=self.task_learning_rate,
-                                                                    total_num_inner_loop_steps=self.args.number_of_training_steps_per_iter,
+                                                                    total_num_inner_loop_steps=self.args.number_of_training_steps_per_iter + self.args.num_critic_updates,
                                                                     use_learnable_learning_rates=self.args.learnable_per_layer_per_step_inner_loop_learning_rate)
-
         self.inner_loop_optimizer.initialise(
             names_weights_dict=self.get_inner_loop_parameter_dict(params=self.classifier.named_parameters()))
 
         print("Inner Loop parameters")
         for key, value in self.inner_loop_optimizer.named_parameters():
             print(key, value.shape)
+
 
         self.use_cuda = args.use_cuda
         self.device = device
@@ -72,9 +74,6 @@ class MAMLFewShotClassifier(nn.Module):
         self.optimizer = optim.Adam(self.trainable_parameters(), lr=args.meta_learning_rate, amsgrad=False)
         self.scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=self.optimizer, T_max=self.args.total_epochs,
                                                               eta_min=self.args.min_learning_rate)
-        
-        self.critic = Critic()
-        self.inner_loop_critic_optimizer = GradientDescentLearningRule(device=device)
 
     def get_per_step_loss_importance_vector(self):
         """
@@ -134,28 +133,6 @@ class MAMLFewShotClassifier(nn.Module):
         names_weights_copy = self.inner_loop_optimizer.update_params(names_weights_dict=names_weights_copy,
                                                                      names_grads_wrt_params_dict=names_grads_wrt_params,
                                                                      num_step=current_step_idx)
-
-        return names_weights_copy
-
-    def apply_inner_loop_critic_update(self, loss, names_weights_copy, use_second_order, current_step_idx):
-        """
-        Applies an inner loop update given current step's loss, the weights to update, a flag indicating whether to use
-        second order derivatives and the current step's index.
-        :param loss: Current step's loss with respect to the support set.
-        :param names_weights_copy: A dictionary with names to parameters to update.
-        :param use_second_order: A boolean flag of whether to use second order derivatives.
-        :param current_step_idx: Current step's index.
-        :return: A dictionary with the updated weights (name, param)
-        """
-        self.classifier.zero_grad(names_weights_copy)
-
-        grads = torch.autograd.grad(loss, names_weights_copy.values(),
-                                    create_graph=use_second_order)
-        names_grads_wrt_params = dict(zip(names_weights_copy.keys(), grads))
-
-        names_weights_copy = self.inner_loop_critic_optimizer.update_params(names_weights_dict=names_weights_copy,
-                                                                            names_grads_wrt_params_dict=names_grads_wrt_params,
-                                                                            num_step=current_step_idx)
 
         return names_weights_copy
 
@@ -255,10 +232,10 @@ class MAMLFewShotClassifier(nn.Module):
                                                                         backup_running_statistics=False, training=True,
                                                                         num_step=num_step+i)
 
-                    names_weights_copy = self.apply_inner_loop_critic_update(loss=critic_loss,
-                                                                             names_weights_copy=names_weights_copy,
-                                                                             use_second_order=use_second_order,
-                                                                             current_step_idx=num_step+i)
+                    names_weights_copy = self.apply_inner_loop_update(loss=critic_loss,
+                                                                      names_weights_copy=names_weights_copy,
+                                                                      use_second_order=use_second_order,
+                                                                      current_step_idx=num_step+i)
 
                     task_losses.append(critic_loss)
 
