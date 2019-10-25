@@ -46,7 +46,7 @@ class MAMLFewShotClassifier(nn.Module):
                                              num_classes_per_set,
                                              args=args, device=device, meta_classifier=True).to(device=self.device)
         if args.use_critic:
-            self.critic = Critic()
+            self.critic = Critic(device=device).to(device=self.device)
         self.task_learning_rate = args.task_learning_rate
 
         self.inner_loop_optimizer = LSLRGradientDescentLearningRule(device=device,
