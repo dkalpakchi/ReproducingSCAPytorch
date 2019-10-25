@@ -11,13 +11,12 @@ import torch.nn.functional as F
 
 
 class Critic(nn.Module):
-    def __init__(self, device, n_classes=5):
+    def __init__(self, n_classes=5):
         super(Critic, self).__init__()
         # self.__args = args
         self.__n_classes = n_classes
         # self.__n_theta = n_theta
         self.__kernel_size = 2
-        self.device = device
         
         for i in range(5):
             setattr(self, f'_conv{i}', nn.Conv1d(
@@ -25,13 +24,12 @@ class Critic(nn.Module):
                 out_channels=8,
                 kernel_size=self.__kernel_size,
                 dilation=2 ** i,
-                padding=math.floor(2 ** (i - 1) * (self.__kernel_size - 1)),
-                device=self.device
+                padding=math.floor(2 ** (i - 1) * (self.__kernel_size - 1))
             )) # padding?, activation function?
             
         out = 5 * 8 + 1
-        self._fc1 = nn.Linear(out * self.__n_classes, out * self.__n_classes, device=self.device)
-        self._fc2 = nn.Linear(out * self.__n_classes, 1, device=self.device)
+        self._fc1 = nn.Linear(out * self.__n_classes, out * self.__n_classes)
+        self._fc2 = nn.Linear(out * self.__n_classes, 1)
         
         
     def conv_forward(self, x):
