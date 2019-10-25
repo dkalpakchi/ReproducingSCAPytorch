@@ -72,6 +72,8 @@ class MAMLFewShotClassifier(nn.Module):
 
 
         self.optimizer = optim.Adam(self.trainable_parameters(), lr=args.meta_learning_rate, amsgrad=False)
+        if args.use_critic:
+            self.critic_optimizer = optim.Adam(self.critic.parameters(), amsgrad=False)
         self.scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=self.optimizer, T_max=self.args.total_epochs,
                                                               eta_min=self.args.min_learning_rate)
 
@@ -220,7 +222,6 @@ class MAMLFewShotClassifier(nn.Module):
                                                                      backup_running_statistics=False, training=True,
                                                                      num_step=num_step)
                         task_losses.append(target_loss)
-
             
             if self.args.use_critic:
                 for i in range(self.args.num_critic_updates):
@@ -237,7 +238,11 @@ class MAMLFewShotClassifier(nn.Module):
                                                                       use_second_order=use_second_order,
                                                                       current_step_idx=num_step+i)
 
-                    task_losses.append(critic_loss)
+                target_loss, target_preds = self.net_forward(x=x_target_set_task,
+                                                             y=y_target_set_task, weights=names_weights_copy,
+                                                             backup_running_statistics=False, training=True,
+                                                             num_step=num_step)
+                task_losses.append(target_loss)
 
             per_task_target_preds[task_id] = target_preds.detach().cpu().numpy()
             _, predicted = torch.max(target_preds.data, 1)
@@ -347,12 +352,17 @@ class MAMLFewShotClassifier(nn.Module):
         :param loss: The current crossentropy loss.
         """
         self.optimizer.zero_grad()
-        loss.backward()
+        loss.backward(retain_graph=True)
         if 'imagenet' in self.args.dataset_name:
             for name, param in self.classifier.named_parameters():
                 if param.requires_grad:
                     param.grad.data.clamp_(-10, 10)  # not sure if this is necessary, more experiments are needed
         self.optimizer.step()
+
+    def critic_meta_update(self, loss):
+        self.critic_optimizer.zero_grad()
+        loss.backward()
+        self.critic_optimizer.step()
 
     def run_train_iter(self, data_batch, epoch):
         """
@@ -381,6 +391,8 @@ class MAMLFewShotClassifier(nn.Module):
         losses, per_task_target_preds = self.train_forward_prop(data_batch=data_batch, epoch=epoch)
 
         self.meta_update(loss=losses['loss'])
+        if self.args.use_critic:
+            self.critic_meta_update(loss=losses['loss'])
         losses['learning_rate'] = self.scheduler.get_lr()[0]
         self.optimizer.zero_grad()
         self.zero_grad()
