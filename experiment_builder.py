@@ -7,6 +7,33 @@ import time
 import torch
 
 
+class Patience(object):
+
+    def __init__(self, patience):
+        self.best_loss = np.inf
+        self.patience = patience
+        self.n_steps = 0
+
+    def step(self, loss):
+        """
+        :return: True if loss improved, otherwise False
+        """
+        if loss < self.best_loss:
+            self.best_loss = loss
+            self.n_steps = 0
+            return True
+        else:
+            self.n_steps += 1
+            return False
+
+    @property
+    def done(self):
+        return self.n_steps >= self.patience
+
+    def __repr__(self):
+        return f'{self.n_steps} / {self.patience}'
+
+
 class ExperimentBuilder(object):
     def __init__(self, args, data, model, device):
         """
@@ -308,10 +335,17 @@ class ExperimentBuilder(object):
         Runs a full training experiment with evaluations of the model on the val set at every epoch. Furthermore,
         will return the test set evaluation results on the best performing validation model.
         """
+
+        # Add patience to stop training when validation score deteriorates
+        # Allow 10 epochs of no improvement (based on plots, this is long enough)
+        patience = Patience(10)
+
         with tqdm.tqdm(initial=self.state['current_iter'],
                        total=int(self.args.total_iter_per_epoch * self.args.total_epochs)) as pbar_train:
 
-            while (self.state['current_iter'] < (self.args.total_epochs * self.args.total_iter_per_epoch)) and (self.args.evaluate_on_test_set_only == False):
+            while ((self.state['current_iter'] < (self.args.total_epochs * self.args.total_iter_per_epoch)) and
+                   (self.args.evaluate_on_test_set_only == False) and
+                   (not patience.done)):
 
                 for train_sample_idx, train_sample in enumerate(
                         self.data.get_train_batches(total_batches=int(self.args.total_iter_per_epoch *
@@ -349,6 +383,8 @@ class ExperimentBuilder(object):
 
 
                         self.epoch += 1
+                        patience.step(-val_losses['val_accuracy_mean'])
+                        print('Patience:', patience)
                         self.state = self.merge_two_dicts(first_dict=self.merge_two_dicts(first_dict=self.state,
                                                                                           second_dict=train_losses),
                                                           second_dict=val_losses)
@@ -368,8 +404,11 @@ class ExperimentBuilder(object):
                         save_to_json(filename=os.path.join(self.logs_filepath, "summary_statistics.json"),
                                      dict_to_store=self.state['per_epoch_statistics'])
 
-                        if self.epochs_done_in_this_run >= self.total_epochs_before_pause:
-                            print("train_seed {}, val_seed: {}, at pause time".format(self.data.dataset.seed["train"],
-                                                                                      self.data.dataset.seed["val"]))
-                            sys.exit()
+                        # Do not pause, finish all epochs and evaluate
+                        # if self.epochs_done_in_this_run >= self.total_epochs_before_pause:
+                        #     print("train_seed {}, val_seed: {}, at pause time".format(self.data.dataset.seed["train"],
+                        #                                                               self.data.dataset.seed["val"]))
+                        #     sys.exit()
+                        if patience.done:
+                            break
             self.evaluated_test_set_using_the_best_models(top_n_models=5)
