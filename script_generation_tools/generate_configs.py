@@ -28,10 +28,10 @@ configs_list = []
 
 hyper_config_dict = {'mini-imagenet': hyper_config(num_samples_per_class_range=[1, 5],
                                                    batch_size_range=[2], init_inner_loop_learning_rate_range=[0.01],
-                                                   num_classes_range=[5], num_filters=[48], num_critic_updates_range=[5]),
+                                                   num_classes_range=[5], num_filters=[48], num_critic_updates_range=[1]),
                      'cubs200': hyper_config(num_samples_per_class_range=[1, 5],
                                              batch_size_range=[2], init_inner_loop_learning_rate_range=[0.01],
-                                             num_classes_range=[5], num_filters=[48], num_critic_updates_range=[5])
+                                             num_classes_range=[5], num_filters=[48], num_critic_updates_range=[1])
                      }
 
 
