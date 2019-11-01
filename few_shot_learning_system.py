@@ -1,4 +1,6 @@
 import os
+from operator import mul
+from functools import reduce
 
 import numpy as np
 import torch
@@ -45,8 +47,6 @@ class MAMLFewShotClassifier(nn.Module):
         self.classifier = VGGReLUNormNetwork(im_shape=self.im_shape, num_output_classes=self.args.
                                              num_classes_per_set,
                                              args=args, device=device, meta_classifier=True).to(device=self.device)
-        if args.use_critic:
-            self.critic = Critic()
         self.task_learning_rate = args.task_learning_rate
 
         self.inner_loop_optimizer = LSLRGradientDescentLearningRule(device=device,
@@ -60,6 +60,9 @@ class MAMLFewShotClassifier(nn.Module):
         for key, value in self.inner_loop_optimizer.named_parameters():
             print(key, value.shape)
 
+        if args.use_critic:
+            print(sum([reduce(mul, p.size(), 1) for p in list(self.get_inner_loop_parameter_dict(self.classifier.named_parameters()).values())]))
+            self.critic = Critic(n_theta=sum([reduce(mul, p.size(), 1) for p in list(self.get_inner_loop_parameter_dict(self.classifier.named_parameters()).values())]))
 
         self.use_cuda = args.use_cuda
         self.device = device
@@ -304,8 +307,11 @@ class MAMLFewShotClassifier(nn.Module):
         preds = self.classifier.forward(x=x, params=weights,
                                         training=training,
                                         backup_running_statistics=backup_running_statistics, num_step=num_step)
+        print(weights.keys())
+        params1d = torch.cat([torch.reshape(p, (1, -1)) for p in list(weights.values())], dim=1)
+        print(params1d.shape)
 
-        loss = self.critic(preds)
+        loss = self.critic(preds, params1d)
 
         return loss, preds
 

@@ -11,11 +11,11 @@ import torch.nn.functional as F
 
 
 class Critic(nn.Module):
-    def __init__(self, n_classes=5):
+    def __init__(self, n_classes=5, n_theta=None):
         super(Critic, self).__init__()
         # self.__args = args
         self.__n_classes = n_classes
-        # self.__n_theta = n_theta
+        self.__n_theta = n_theta
         self.__kernel_size = 2
         
         for i in range(5):
@@ -28,8 +28,12 @@ class Critic(nn.Module):
             )) # padding?, activation function?
             
         out = 5 * 8 + 1
-        self._fc1 = nn.Linear(out * self.__n_classes, out * self.__n_classes)
-        self._fc2 = nn.Linear(out * self.__n_classes, 1)
+        if n_theta is None:
+            self._fc1 = nn.Linear(out * self.__n_classes, out * self.__n_classes)
+            self._fc2 = nn.Linear(out * self.__n_classes, 1)
+        else:
+            self._fc1 = nn.Linear(out * (self.__n_classes + self.__n_theta), 2)
+            self._fc2 = nn.Linear(2, 1)
         
         
     def conv_forward(self, x):
@@ -41,8 +45,11 @@ class Critic(nn.Module):
             x = torch.cat((x, y), 1)
         return x.flatten(1)
         
-    def forward(self, predictions):
-        x = predictions # TODO: add theta and maybe g?
+    def forward(self, predictions, params=None):
+        if params is not None:
+            x = torch.cat([predictions, params.expand(params.shape[0] * predictions.shape[0], -1)], dim=1) # TODO: add theta and maybe g?
+        else:
+            x = predictions
         x = self.conv_forward(x)
         x = F.relu(self._fc1(x))
         return self._fc2(x).mean() # Is there a mean?
