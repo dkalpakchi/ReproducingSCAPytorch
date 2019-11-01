@@ -6,3 +6,4 @@ datasets/cubs200_dataset
 **/*.pyc
 datasets/*.json
 datasets/*.bz2
+.ipynb_checkpoints
