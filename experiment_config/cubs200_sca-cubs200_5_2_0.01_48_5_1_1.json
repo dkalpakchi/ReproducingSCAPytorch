@@ -1,7 +1,7 @@
 {
   "use_critic":true,
   "num_critic_updates": 1,
-  "batch_size":2,
+  "batch_size":1,
   "image_height":84,
   "image_width":84,
   "image_channels":3,
