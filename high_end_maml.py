@@ -21,15 +21,17 @@ class BatchNorm(nn.Module):
         self.momentum = momentum
         self.weight = nn.Parameter(torch.ones(num_features))
         self.bias = nn.Parameter(torch.zeros(num_features))
-        self.register_buffer('running_mean', torch.zeros(num_features))
-        self.register_buffer('running_var', torch.ones(num_features))
+        # self.register_buffer('running_mean', torch.zeros(num_features))  # This way produced backprop problems
+        # self.register_buffer('running_var', torch.ones(num_features))
+        self.running_mean = nn.Parameter(torch.zeros(num_features), requires_grad=False)
+        self.running_var = nn.Parameter(torch.ones(num_features), requires_grad=False)
         
     def forward(self, x, num_step):
         if self.training:
             m1 = x.mean((0, 2, 3))
             m2 = (x**2).mean((0, 2, 3))
-            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * m1
-            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * (m2 - m1**2)
+            self.running_mean.data = (1 - self.momentum) * self.running_mean + self.momentum * m1
+            self.running_var.data = (1 - self.momentum) * self.running_var + self.momentum * (m2 - m1**2)
         return F.batch_norm(x, self.running_mean, self.running_var, self.weight, self.bias, False,
                             self.momentum, self.eps)
 
@@ -97,18 +99,18 @@ class HighEndEmbedding(nn.Module):
         self.n_out_channels = self.dbu3.n_out_channels
     
     def forward(self, x):
-        x = self.dbu2(self.dbu1(x)) # first dense block
+        x = self.dbu2(self.dbu1(x, 0), 0) # first dense block
         x = self.tr_av_pool(self.tr_conv(x)) # transition layer
-        return self.dbu3(x)
+        return self.dbu3(x, 0)
 
 
 class HighEndClassifier(nn.Module):
     def __init__(self, device, args, in_channels):
         super(HighEndClassifier, self).__init__()
         
-        self.dbu4 = DenseBlockUnit(in_channels, MetaBatchNormLayer)
+        self.dbu4 = DenseBlockUnit(in_channels, device, args, MetaBatchNormLayer)
         
-        self.lin1 = nn.Linear(self.dbu4.n_out_channels, args['num_classes_per_set'])
+        self.lin1 = nn.Linear(self.dbu4.n_out_channels, args.num_classes_per_set)
     
     def forward(self, x, num_step):
         x = self.dbu4(x, num_step).mean((-2, -1))
