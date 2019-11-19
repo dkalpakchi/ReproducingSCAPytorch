@@ -1,5 +1,6 @@
 {
   "use_critic":false,
+  "high_end": false,
   "batch_size":2,
   "image_height":84,
   "image_width":84,
