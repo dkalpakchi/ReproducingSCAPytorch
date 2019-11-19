@@ -1,21 +1,22 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# In[42]:
-
-
-import math
 import torch
 from torch import nn
 import torch.nn.functional as F
 from meta_neural_network_architectures import *
 
 
-# In[74]:
+def filter_dict(key, params_dict):
+    res_dict = dict()
+    for name, param in params_dict.items():
+        bits = name.split('.')
+        if key in bits:
+            res_dict['.'.join(bits[1:])] = param
+    return res_dict
 
 
 class BatchNorm(nn.Module):
-    def __init__(self, num_features, device, args, eps=1e-5, momentum=0.1):
+    def __init__(self, num_features, device, args, eps=1e-5, momentum=0.1, use_per_step_bn_statistics=None):
         super(BatchNorm, self).__init__()
         self.eps = eps
         self.momentum = momentum
@@ -42,15 +43,21 @@ class BatchNorm(nn.Module):
 class BottleneckLayer(nn.Module):
     def __init__(self, in_channels, device, args, batch_norm_cls):
         super(BottleneckLayer, self).__init__()
-        self.k = 64 # growth rateaa
-        self.bn1 = batch_norm_cls(in_channels, device, args)
+        self.k = 64  # growth rate
+        self.norm_layer_1 = batch_norm_cls(in_channels,
+                                           device,
+                                           args,
+                                           use_per_step_bn_statistics=args.per_step_bn_statistics)
         self.conv1 = nn.Conv2d(in_channels, 4 * self.k, 1)
-        self.bn2 = batch_norm_cls(4 * self.k, device, args)
+        self.norm_layer_2 = batch_norm_cls(4 * self.k,
+                                           device,
+                                           args,
+                                           use_per_step_bn_statistics=args.per_step_bn_statistics)
         self.conv2 = nn.Conv2d(4 * self.k, self.k, 3, padding=1)
     
     def forward(self, x, num_step):
-        x = self.conv1(F.relu(self.bn1(x, num_step)))
-        return self.conv2(F.relu(self.bn2(x, num_step)))
+        x = self.conv1(F.relu(self.norm_layer_1(x, num_step)))
+        return self.conv2(F.relu(self.norm_layer_2(x, num_step)))
 
 
 # In[3]:
@@ -77,7 +84,10 @@ class DenseBlockUnit(nn.Module):
         self.bc = BottleneckLayer(in_channels, device, args, batch_norm_cls)
         self.n_out_channels = self.bc.k + in_channels
     
-    def forward(self, x, num_step):
+    def forward(self, x, params, num_step):
+        se_params = filter_dict('se', params)
+        bc_params = filter_dict('bc', params)
+        a = self.se(x, )
         y = self.bc(self.se(x), num_step)
         return torch.cat((x, y), 1)
 
@@ -112,8 +122,8 @@ class HighEndClassifier(nn.Module):
         
         self.lin1 = nn.Linear(self.dbu4.n_out_channels, args.num_classes_per_set)
     
-    def forward(self, x, num_step):
-        x = self.dbu4(x, num_step).mean((-2, -1))
+    def forward(self, x, num_step, params, training, backup_running_statistics):
+        x = self.dbu4(x, num_step, params=filter_dict('dbu4', params)).mean((-2, -1))
         return F.softmax(self.lin1(x), dim=-1)
 
 

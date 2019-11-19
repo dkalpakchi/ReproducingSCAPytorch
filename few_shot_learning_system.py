@@ -44,12 +44,13 @@ class MAMLFewShotClassifier(nn.Module):
         self.current_epoch = 0
 
         self.rng = set_torch_seed(seed=args.seed)
-        # TODO High end?
-        #self.classifier = VGGReLUNormNetwork(im_shape=self.im_shape, num_output_classes=self.args.
-        #                                     num_classes_per_set,
-        #                                     args=args, device=device, meta_classifier=True).to(device=self.device)
-        self.embedding = HighEndEmbedding(device, args).to(device)
-        self.classifier = HighEndClassifier(device, args, self.embedding.n_out_channels).to(device)
+        if args.high_end:
+            self.embedding = HighEndEmbedding(device, args).to(device)
+            self.classifier = HighEndClassifier(device, args, self.embedding.n_out_channels).to(device)
+        else:
+            self.classifier = VGGReLUNormNetwork(im_shape=self.im_shape, num_output_classes=self.args.
+                                                 num_classes_per_set,
+                                                 args=args, device=device, meta_classifier=True).to(device=self.device)
         self.task_learning_rate = args.task_learning_rate
 
         self.inner_loop_optimizer = LSLRGradientDescentLearningRule(device=device,
@@ -173,7 +174,8 @@ class MAMLFewShotClassifier(nn.Module):
         total_losses = []
         total_accuracies = []
         per_task_target_preds = [[] for i in range(len(x_target_set))]
-        self.embedding.zero_grad()
+        if self.args.high_end:
+            self.embedding.zero_grad()
         self.classifier.zero_grad()
         for task_id, (x_support_set_task, y_support_set_task, x_target_set_task, y_target_set_task) in \
                 enumerate(zip(x_support_set,
@@ -195,12 +197,13 @@ class MAMLFewShotClassifier(nn.Module):
             y_target_set_task = y_target_set_task.view(-1)
 
             # Inner loop starts
-            embedding_support = self.embedding(x_support_set_task)
-            embedding_target = self.embedding(x_target_set_task)
+            if self.args.high_end:
+                x_support_set_task = self.embedding(x_support_set_task)
+                x_target_set_task = self.embedding(x_target_set_task)
             for num_step in range(num_steps):
 
                 # operates on the support set
-                support_loss, support_preds = self.net_forward(x=embedding_support,
+                support_loss, support_preds = self.net_forward(x=x_support_set_task,
                                                                y=y_support_set_task,
                                                                weights=names_weights_copy,
                                                                backup_running_statistics=
@@ -218,7 +221,7 @@ class MAMLFewShotClassifier(nn.Module):
                 # TODO: inner loop OPTIMIZATION wrt target set???
                 if use_multi_step_loss_optimization and training_phase and epoch < self.args.multi_step_loss_num_epochs:
                     # this is MAML++ way
-                    target_loss, target_preds = self.net_forward(x=embedding_target,
+                    target_loss, target_preds = self.net_forward(x=x_target_set_task,
                                                                  y=y_target_set_task, weights=names_weights_copy,
                                                                  backup_running_statistics=False, training=True,
                                                                  num_step=num_step)
@@ -226,7 +229,7 @@ class MAMLFewShotClassifier(nn.Module):
                     task_losses.append(per_step_loss_importance_vectors[num_step] * target_loss)
                 else:
                     if num_step == (self.args.number_of_training_steps_per_iter - 1):
-                        target_loss, target_preds = self.net_forward(x=embedding_target,
+                        target_loss, target_preds = self.net_forward(x=x_target_set_task,
                                                                      y=y_target_set_task, weights=names_weights_copy,
                                                                      backup_running_statistics=False, training=True,
                                                                      num_step=num_step)
@@ -237,7 +240,7 @@ class MAMLFewShotClassifier(nn.Module):
                     # TODO: here must be an update using the Critic (start without g)
                     # F = {f(x^b_T, θ_{N+j}), θ_{N+j}, g(xS, xn)}
                     # θ_{N+j+1} = θ_{N+j} − \gamma * \nabla_{θ_{N+j}} C(F,W)
-                    critic_loss, target_preds = self.net_forward_critic(x=embedding_target,
+                    critic_loss, target_preds = self.net_forward_critic(x=x_target_set_task,
                                                                         y=y_target_set_task, weights=names_weights_copy,
                                                                         backup_running_statistics=False, training=True,
                                                                         num_step=num_step+i)
@@ -247,7 +250,7 @@ class MAMLFewShotClassifier(nn.Module):
                                                                       use_second_order=use_second_order,
                                                                       current_step_idx=num_step+i)
 
-                target_loss, target_preds = self.net_forward(x=embedding_target,
+                target_loss, target_preds = self.net_forward(x=x_target_set_task,
                                                              y=y_target_set_task, weights=names_weights_copy,
                                                              backup_running_statistics=False, training=True,
                                                              num_step=num_step)
@@ -287,6 +290,7 @@ class MAMLFewShotClassifier(nn.Module):
         :param num_step: An integer indicating the number of the step in the inner loop.
         :return: the crossentropy losses with respect to the given y, the predictions of the base model.
         """
+        print(weights)
         preds = self.classifier.forward(x=x, params=weights,
                                         training=training,
                                         backup_running_statistics=backup_running_statistics, num_step=num_step)
@@ -369,9 +373,10 @@ class MAMLFewShotClassifier(nn.Module):
             for name, param in self.classifier.named_parameters():
                 if param.requires_grad:
                     param.grad.data.clamp_(-10, 10)  # not sure if this is necessary, more experiments are needed
-            for name, param in self.embedding.named_parameters():
-                if param.requires_grad:
-                    param.grad.data.clamp_(-10, 10)  # not sure if this is necessary, more experiments are needed
+            if self.args.high_end:
+                for name, param in self.embedding.named_parameters():
+                    if param.requires_grad:
+                        param.grad.data.clamp_(-10, 10)  # not sure if this is necessary, more experiments are needed
         self.optimizer.step()
 
     def critic_meta_update(self, loss):
