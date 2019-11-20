@@ -45,7 +45,7 @@ class MAMLFewShotClassifier(nn.Module):
 
         self.rng = set_torch_seed(seed=args.seed)
         if args.high_end:
-            self.embedding = HighEndEmbedding(device, args).to(device)
+            self.embedding = HighEndEmbedding(device, args, 3).to(device)
             self.classifier = HighEndClassifier(device, args, self.embedding.n_out_channels).to(device)
         else:
             self.classifier = VGGReLUNormNetwork(im_shape=self.im_shape, num_output_classes=self.args.
@@ -198,8 +198,8 @@ class MAMLFewShotClassifier(nn.Module):
 
             # Inner loop starts
             if self.args.high_end:
-                x_support_set_task = self.embedding(x_support_set_task)
-                x_target_set_task = self.embedding(x_target_set_task)
+                x_support_set_task = self.embedding(x_support_set_task, 0, training=training_phase)
+                x_target_set_task = self.embedding(x_target_set_task, 0, training=training_phase)
             for num_step in range(num_steps):
 
                 # operates on the support set
@@ -290,7 +290,6 @@ class MAMLFewShotClassifier(nn.Module):
         :param num_step: An integer indicating the number of the step in the inner loop.
         :return: the crossentropy losses with respect to the given y, the predictions of the base model.
         """
-        print(weights)
         preds = self.classifier.forward(x=x, params=weights,
                                         training=training,
                                         backup_running_statistics=backup_running_statistics, num_step=num_step)
