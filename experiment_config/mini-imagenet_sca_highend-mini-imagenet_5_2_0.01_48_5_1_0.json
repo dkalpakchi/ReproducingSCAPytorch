@@ -12,7 +12,7 @@
   "dataset_name":"mini_imagenet_full_size",
   "dataset_path":"mini_imagenet_full_size",
   "reset_stored_paths":false,
-  "experiment_name":"sca_mini-imagenet_5_2_0.01_48_5_1_0",
+  "experiment_name":"sca_highend_mini-imagenet_5_2_0.01_48_5_1_0",
   "train_seed": 0, "val_seed": 0,
   "indexes_of_folders_indicating_class": [-3, -2],
   "sets_are_pre_split": true,

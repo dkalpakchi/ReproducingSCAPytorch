@@ -11,7 +11,7 @@
   "dataset_name":"cubs200",
   "dataset_path":"cubs200_dataset",
   "reset_stored_paths":false,
-  "experiment_name":"maml++_$experiment_name$",
+  "experiment_name":"maml++_highend_$experiment_name$",
   "train_seed": $train_seed$, "val_seed": $val_seed$,
   "train_val_test_split": [0.64, 0.16, 0.20],
   "indexes_of_folders_indicating_class": [-3, -2],
