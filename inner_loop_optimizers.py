@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from collections import OrderedDict
 
 import numpy as np
@@ -46,11 +47,10 @@ class GradientDescentLearningRule(nn.Module):
                 previously, with this list expected to be in the same order.
         """
         updated_names_weights_dict = dict()
-        for key in names_weights_dict.keys():
+        for key in names_weights_dict.keys():            
             updated_names_weights_dict[key] = names_weights_dict[key] - self.learning_rate * \
                                               names_grads_wrt_params_dict[
                                                   key]
-
         return updated_names_weights_dict
 
 

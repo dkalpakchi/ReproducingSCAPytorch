@@ -103,6 +103,8 @@ class SqueezeExciteConvLayer(nn.Module):
         reduced = max(in_channels // 16, 1)
         self.w1 = nn.Parameter(torch.Tensor(reduced, in_channels))
         self.w2 = nn.Parameter(torch.Tensor(in_channels, reduced))
+        nn.init.uniform_(self.w1)
+        nn.init.uniform_(self.w2)
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         if params:
@@ -112,7 +114,6 @@ class SqueezeExciteConvLayer(nn.Module):
             w1 = self.w1
             w2 = self.w2
         z = x.mean((-2, -1))
-        F.linear(z, w1)
         z = F.relu(F.linear(z, w1))
         s = torch.sigmoid(F.linear(z, w2)).unsqueeze(2).unsqueeze(3)
         return s * x
@@ -129,11 +130,11 @@ class DenseBlock(nn.Module):
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         y = self.se1(x, num_step, params=filter_dict('se1', params), training=training)
-        y = self.bc1(x, num_step, params=filter_dict('bc1', params), training=training,
+        y = self.bc1(y, num_step, params=filter_dict('bc1', params), training=training,
                      backup_running_statistics=backup_running_statistics)
         x = torch.cat((x, y), 1)
         y = self.se2(x, num_step, params=filter_dict('se2', params), training=training)
-        y = self.bc2(x, num_step, params=filter_dict('bc2', params), training=training,
+        y = self.bc2(y, num_step, params=filter_dict('bc2', params), training=training,
                      backup_running_statistics=backup_running_statistics)
         return torch.cat((x, y), 1)
 
@@ -147,7 +148,7 @@ class DenseBlockUnit(nn.Module):
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         y = self.se(x, num_step, params=filter_dict('se', params), training=training)
-        y = self.bc(x, num_step, params=filter_dict('bc', params), training=training,
+        y = self.bc(y, num_step, params=filter_dict('bc', params), training=training,
                     backup_running_statistics=backup_running_statistics)
         return torch.cat((x, y), 1)
 

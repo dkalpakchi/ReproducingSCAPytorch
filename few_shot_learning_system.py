@@ -132,7 +132,7 @@ class MAMLFewShotClassifier(nn.Module):
         :param use_second_order: A boolean flag of whether to use second order derivatives.
         :param current_step_idx: Current step's index.
         :return: A dictionary with the updated weights (name, param)
-        """
+        """        
         self.classifier.zero_grad(names_weights_copy)
 
         grads = torch.autograd.grad(loss, names_weights_copy.values(),
