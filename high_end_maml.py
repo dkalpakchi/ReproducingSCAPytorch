@@ -26,8 +26,11 @@ class BatchNorm(nn.Module):
         self.momentum = momentum
         self.weight = nn.Parameter(torch.ones(num_features))
         self.bias = nn.Parameter(torch.zeros(num_features))
+        self.use_per_step_bn_statistics = use_per_step_bn_statistics
         self.running_mean = nn.Parameter(torch.zeros(num_features), requires_grad=False)
         self.running_var = nn.Parameter(torch.zeros(num_features), requires_grad=False)
+        self.backup_running_mean = torch.zeros(self.running_mean.shape)
+        self.backup_running_var = torch.ones(self.running_var.shape)
 
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
@@ -38,6 +41,10 @@ class BatchNorm(nn.Module):
             weight = self.weight
             bias = self.bias
 
+        if backup_running_statistics and self.use_per_step_bn_statistics:
+            self.backup_running_mean.data = copy(self.running_mean.data)
+            self.backup_running_var.data = copy(self.running_var.data)
+
         if training:
             m1 = x.mean((0, 2, 3))
             m2 = (x ** 2).mean((0, 2, 3))
@@ -45,6 +52,14 @@ class BatchNorm(nn.Module):
             self.running_var.data = (1 - self.momentum) * self.running_var + self.momentum * (m2 - m1 ** 2)
         return F.batch_norm(x, self.running_mean, self.running_var, weight, bias, False,
                             self.momentum, self.eps)
+
+    def restore_backup_stats(self):
+        """
+        Resets batch statistics to their backup values which are collected after each forward pass.
+        """
+        if self.use_per_step_bn_statistics:
+            self.running_mean = nn.Parameter(self.backup_running_mean.to(device=self.device), requires_grad=False)
+            self.running_var = nn.Parameter(self.backup_running_var.to(device=self.device), requires_grad=False)
 
 
 class Conv2d(nn.Module):
@@ -95,6 +110,13 @@ class BottleneckLayer(nn.Module):
         x = F.relu(x)
         x = self.conv2(x, num_step, params=filter_dict('conv2', params), training=training)
         return x
+
+    def restore_backup_stats(self):
+        """
+        Resets batch statistics to their backup values which are collected after each forward pass.
+        """
+        self.bn1.restore_backup_stats()
+        self.bn2.restore_backup_stats()
 
 
 class SqueezeExciteConvLayer(nn.Module):
@@ -152,6 +174,12 @@ class DenseBlockUnit(nn.Module):
                     backup_running_statistics=backup_running_statistics)
         return torch.cat((x, y), 1)
 
+    def restore_backup_stats(self):
+        """
+        Resets batch statistics to their backup values which are collected after each forward pass.
+        """
+        self.bc.restore_backup_stats()
+
 
 class HighEndEmbedding(nn.Module):
     def __init__(self, device, args, in_channels=3):
@@ -208,8 +236,14 @@ class HighEndClassifier(nn.Module):
         else:
             weight = self.weight
             bias = self.bias
-        x = F.linear(x, weight, bias)
-        return F.softmax(x, dim=-1)
+        y = F.linear(x, weight, bias)  # Seems they don't use softmax in the end???
+        return y
+
+    def restore_backup_stats(self):
+        """
+        Resets batch statistics to their backup values which are collected after each forward pass.
+        """
+        self.dbu4.restore_backup_stats()
 
     def zero_grad(self, params=None):
         if params is None:
