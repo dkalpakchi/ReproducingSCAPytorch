@@ -95,17 +95,17 @@ class BottleneckLayer(nn.Module):
     def __init__(self, in_channels, device, args, batch_norm_cls):
         super(BottleneckLayer, self).__init__()
         self.k = 64  # growth rate
-        self.bn1 = batch_norm_cls(in_channels, device, args)
+        self.norm_layer_1 = batch_norm_cls(in_channels, device, args)
         self.conv1 = Conv2d(in_channels, 4 * self.k, (1, 1))
-        self.bn2 = batch_norm_cls(4 * self.k, device, args)
+        self.norm_layer_2 = batch_norm_cls(4 * self.k, device, args)
         self.conv2 = Conv2d(4 * self.k, self.k, (3, 3), padding=1)
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
-        x = self.bn1(x, num_step, params=filter_dict('bn1', params), training=training,
+        x = self.norm_layer_1(x, num_step, params=filter_dict('bn1', params), training=training,
                      backup_running_statistics=backup_running_statistics)
         x = F.relu(x)
         x = self.conv1(x, num_step, params=filter_dict('conv1', params), training=training)
-        x = self.bn2(x, num_step, params=filter_dict('bn2', params), training=training,
+        x = self.norm_layer_2(x, num_step, params=filter_dict('bn2', params), training=training,
                      backup_running_statistics=backup_running_statistics)
         x = F.relu(x)
         x = self.conv2(x, num_step, params=filter_dict('conv2', params), training=training)
@@ -115,8 +115,8 @@ class BottleneckLayer(nn.Module):
         """
         Resets batch statistics to their backup values which are collected after each forward pass.
         """
-        self.bn1.restore_backup_stats()
-        self.bn2.restore_backup_stats()
+        self.norm_layer_1.restore_backup_stats()
+        self.norm_layer_2.restore_backup_stats()
 
 
 class SqueezeExciteConvLayer(nn.Module):
