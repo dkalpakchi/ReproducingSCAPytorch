@@ -101,11 +101,11 @@ class BottleneckLayer(nn.Module):
         self.conv2 = Conv2d(4 * self.k, self.k, (3, 3), padding=1)
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
-        x = self.norm_layer_1(x, num_step, params=filter_dict('bn1', params), training=training,
+        x = self.norm_layer_1(x, num_step, params=filter_dict('norm_layer_1', params), training=training,
                      backup_running_statistics=backup_running_statistics)
         x = F.relu(x)
         x = self.conv1(x, num_step, params=filter_dict('conv1', params), training=training)
-        x = self.norm_layer_2(x, num_step, params=filter_dict('bn2', params), training=training,
+        x = self.norm_layer_2(x, num_step, params=filter_dict('norm_layer_2', params), training=training,
                      backup_running_statistics=backup_running_statistics)
         x = F.relu(x)
         x = self.conv2(x, num_step, params=filter_dict('conv2', params), training=training)
