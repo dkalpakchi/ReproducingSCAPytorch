@@ -13,7 +13,7 @@ def filter_dict(key, params_dict):
         bits = name.split('.')
         if key in bits:
             res_dict['.'.join(bits[1:])] = param
-    return res_dict
+    return res_dict or None
 
 
 class BatchNorm(nn.Module):
