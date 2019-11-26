@@ -344,8 +344,8 @@ class ExperimentBuilder(object):
                        total=int(self.args.total_iter_per_epoch * self.args.total_epochs)) as pbar_train:
 
             while ((self.state['current_iter'] < (self.args.total_epochs * self.args.total_iter_per_epoch)) and
-                   (self.args.evaluate_on_test_set_only == False) and
-                   (not patience.done)):
+                    (self.args.evaluate_on_test_set_only == False)): #and
+                   #(not patience.done)):
 
                 for train_sample_idx, train_sample in enumerate(
                         self.data.get_train_batches(total_batches=int(self.args.total_iter_per_epoch *
