@@ -28,9 +28,10 @@ class BatchNorm(nn.Module):
         self.bias = nn.Parameter(torch.zeros(num_features))
         self.use_per_step_bn_statistics = use_per_step_bn_statistics
         self.running_mean = nn.Parameter(torch.zeros(num_features), requires_grad=False)
-        self.running_var = nn.Parameter(torch.ones(num_features), requires_grad=False)
+        self.running_var = nn.Parameter(torch.zeros(num_features), requires_grad=False)
         self.backup_running_mean = torch.zeros(self.running_mean.shape)
         self.backup_running_var = torch.ones(self.running_var.shape)
+
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         if params:
@@ -73,9 +74,11 @@ class Conv2d(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        # Same as MAML++
-        nn.init.xavier_uniform_(self.weight)
-        nn.init.zeros_(self.bias)
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
+            bound = 1 / math.sqrt(fan_in)
+            nn.init.uniform_(self.bias, -bound, bound)
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         if params:
@@ -122,8 +125,8 @@ class SqueezeExciteConvLayer(nn.Module):
         reduced = max(in_channels // 16, 1)
         self.w1 = nn.Parameter(torch.Tensor(reduced, in_channels))
         self.w2 = nn.Parameter(torch.Tensor(in_channels, reduced))
-        nn.init.kaiming_normal_(self.w1)
-        nn.init.kaiming_normal_(self.w2)
+        nn.init.uniform_(self.w1)
+        nn.init.uniform_(self.w2)
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         if params:
@@ -218,8 +221,11 @@ class HighEndClassifier(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        nn.init.xavier_uniform_(self.weight)
-        nn.init.zeros_(self.bias)
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
+            bound = 1 / math.sqrt(fan_in)
+            nn.init.uniform_(self.bias, -bound, bound)
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         x = self.dbu4(x, num_step, params=filter_dict('dbu4', params), training=training,
