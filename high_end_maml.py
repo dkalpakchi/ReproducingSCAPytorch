@@ -28,7 +28,7 @@ class BatchNorm(nn.Module):
         self.bias = nn.Parameter(torch.zeros(num_features))
         self.use_per_step_bn_statistics = use_per_step_bn_statistics
         self.running_mean = nn.Parameter(torch.zeros(num_features), requires_grad=False)
-        self.running_var = nn.Parameter(torch.zeros(num_features), requires_grad=False)
+        self.running_var = nn.Parameter(torch.ones(num_features), requires_grad=False)
         self.backup_running_mean = torch.zeros(self.running_mean.shape)
         self.backup_running_var = torch.ones(self.running_var.shape)
 
