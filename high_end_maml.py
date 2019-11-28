@@ -220,8 +220,8 @@ class HighEndClassifier(nn.Module):
 
     def reset_parameters(self):
         ## Same as MAML++ linear does not work!!!
-        # nn.init.xavier_uniform_(self.weight)
-        # nn.init.zeros_(self.bias)
+        #nn.init.xavier_uniform_(self.weight)
+        #nn.init.zeros_(self.bias)
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
         if self.bias is not None:
             fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
