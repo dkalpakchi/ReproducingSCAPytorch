@@ -74,11 +74,9 @@ class Conv2d(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
-        if self.bias is not None:
-            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
-            bound = 1 / math.sqrt(fan_in)
-            nn.init.uniform_(self.bias, -bound, bound)
+        # Same as MAML++
+        nn.init.xavier_uniform_(self.weight)
+        nn.init.zeros_(self.bias)
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         if params:
@@ -125,8 +123,8 @@ class SqueezeExciteConvLayer(nn.Module):
         reduced = max(in_channels // 16, 1)
         self.w1 = nn.Parameter(torch.Tensor(reduced, in_channels))
         self.w2 = nn.Parameter(torch.Tensor(in_channels, reduced))
-        nn.init.uniform_(self.w1)
-        nn.init.uniform_(self.w2)
+        nn.init.kaiming_normal_(self.w1)
+        nn.init.kaiming_normal_(self.w2)
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         if params:
@@ -221,6 +219,9 @@ class HighEndClassifier(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
+        ## Same as MAML++ linear does not work!!!
+        # nn.init.xavier_uniform_(self.weight)
+        # nn.init.zeros_(self.bias)
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
         if self.bias is not None:
             fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
