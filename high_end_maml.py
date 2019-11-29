@@ -123,8 +123,10 @@ class SqueezeExciteConvLayer(nn.Module):
         reduced = max(in_channels // 16, 1)
         self.w1 = nn.Parameter(torch.Tensor(reduced, in_channels))
         self.w2 = nn.Parameter(torch.Tensor(in_channels, reduced))
-        nn.init.kaiming_normal_(self.w1)
-        nn.init.kaiming_normal_(self.w2)
+        #nn.init.kaiming_normal_(self.w1)
+        #nn.init.kaiming_normal_(self.w2)
+        nn.init.xavier_uniform_(self.w1)
+        nn.init.xavier_uniform_(self.w2)
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         if params:
@@ -137,26 +139,6 @@ class SqueezeExciteConvLayer(nn.Module):
         z = F.relu(F.linear(z, w1))
         s = torch.sigmoid(F.linear(z, w2)).unsqueeze(2).unsqueeze(3)
         return s * x
-
-
-class DenseBlock(nn.Module):
-    def __init__(self, in_channels, device, args, batch_norm_cls):
-        super(DenseBlock, self).__init__()
-        self.se1 = SqueezeExciteConvLayer(in_channels)
-        self.bc1 = BottleneckLayer(in_channels, device, args, batch_norm_cls)
-        self.se2 = SqueezeExciteConvLayer(self.bc1.k + in_channels)
-        self.bc2 = BottleneckLayer(self.bc1.k + in_channels, device, args, batch_norm_cls)
-        self.n_out_channels = self.bc2.k + self.bc1.k + in_channels
-
-    def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
-        y = self.se1(x, num_step, params=filter_dict('se1', params), training=training)
-        y = self.bc1(y, num_step, params=filter_dict('bc1', params), training=training,
-                     backup_running_statistics=backup_running_statistics)
-        x = torch.cat((x, y), 1)
-        y = self.se2(x, num_step, params=filter_dict('se2', params), training=training)
-        y = self.bc2(y, num_step, params=filter_dict('bc2', params), training=training,
-                     backup_running_statistics=backup_running_statistics)
-        return torch.cat((x, y), 1)
 
 
 class DenseBlockUnit(nn.Module):

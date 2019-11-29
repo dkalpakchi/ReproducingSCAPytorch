@@ -78,7 +78,10 @@ class MAMLFewShotClassifier(nn.Module):
                 print(name, param.shape, param.device, param.requires_grad)
 
 
-        self.optimizer = optim.Adam(self.trainable_parameters(), lr=args.meta_learning_rate, amsgrad=False)
+        if args.high_end:
+            self.optimizer = optim.SGD(self.trainable_parameters(), lr=1e-4)
+        else:
+            self.optimizer = optim.Adam(self.trainable_parameters(), lr=args.meta_learning_rate, amsgrad=False)
         if args.use_critic:
             self.critic_optimizer = optim.SGD(self.critic.parameters(), lr=1e-6)
         self.scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer=self.optimizer, T_max=self.args.total_epochs,
