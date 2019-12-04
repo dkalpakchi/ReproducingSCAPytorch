@@ -170,10 +170,12 @@ class HighEndEmbedding(nn.Module):
 
         n_out2 = max(self.dbu2.n_out_channels // 2, 1)
         self.tr_conv = Conv2d(self.dbu2.n_out_channels, n_out2, (1, 1))
-        self.tr_av_pool = nn.AvgPool2d(2, stride=2)
+        self.tr_av_pool = nn.AvgPool2d(4, stride=4)
 
         self.dbu3 = DenseBlockUnit(n_out2, device, args, BatchNorm)
         self.n_out_channels = self.dbu3.n_out_channels
+
+        self.args = args
 
     def forward(self, x, num_step, params=None, training=False, backup_running_statistics=False):
         # First two dense blocks
@@ -189,7 +191,9 @@ class HighEndEmbedding(nn.Module):
         # 3/4:th dense block (embedding)
         x = self.dbu3(x, num_step, params=filter_dict('dbu3', params), training=training,
                       backup_running_statistics=backup_running_statistics)
-        return x
+
+        # Receptive field change
+        return F.adaptive_avg_pool2d(x, (5, 5))
 
 
 class HighEndClassifier(nn.Module):
